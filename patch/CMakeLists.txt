@@ -8,8 +8,8 @@ if( NOT CMAKE_BUILD_TYPE )
 endif()
 
 option( BUILD_WITH_CUDA "If enabled builds cuda implementation of ops"  ON )
-include_directories("/home/docker/miniconda2/envs/deeptam/lib/python3.5/site-packages/tensorflow/include/")
-include_directories("/home/docker/miniconda2/envs/deeptam/lib/python3.5/site-packages/external/nsync/public/")
+include_directories("/home/docker/miniconda3/envs/deeptam/lib/python3.5/site-packages/tensorflow/include/")
+include_directories("/home/docker/miniconda3/envs/deeptam/lib/python3.5/site-packages/external/nsync/public/")
 
 # enable all warnings
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -D_GLIBCXX_USE_CXX11_ABI=0" )
