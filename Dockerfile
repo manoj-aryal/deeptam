@@ -41,5 +41,6 @@ RUN /bin/bash -c "echo `python --version` && pip install --upgrade pip && pip in
 	conda install -y cudatoolkit=8.0 cudnn=6.0 -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/linux-64/"
 ENV PYTHONPATH $PYTHONPATH:/home/docker/deeptam/tracking/python:/home/docker/deeptam/mapping/python:/home/docker/lmbspecialops/python
 ENV LD_LIBRARY_PATH /home/docker/miniconda3/envs/deeptam/lib:/home/docker/miniconda3/lib/:$LD_LIBRARY_PATH
+RUN chmod +x /home/docker/deeptam/install_test.sh
 # Launch
-ENTRYPOINT ["./deeptam/install_test.sh"]
+ENTRYPOINT ["/home/docker/deeptam/install_test.sh"]

@@ -14,12 +14,12 @@ include_directories("/home/docker/miniconda3/envs/deeptam/lib/python3.5/site-pac
 # enable all warnings
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -D_GLIBCXX_USE_CXX11_ABI=0" )
 set( CUDA_SDK_ROOT_DIR "/usr/local/cuda/samples" )
-set( GENERATE_KEPLER_SM35_CODE "ON")
-set( GENERATE_KEPLER_SM37_CODE "ON")
-set( GENERATE_MAXWELL_SM52_CODE "ON")
-set( GENERATE_PASCAL_SM60_CODE "ON")
-set( GENERATE_PASCAL_SM61_CODE "ON")
-set( GENERATE_PTX61_CODE "ON")
+set( GENERATE_KEPLER_SM35_CODE ON)
+set( GENERATE_KEPLER_SM37_CODE ON)
+set( GENERATE_MAXWELL_SM52_CODE ON)
+set( GENERATE_PASCAL_SM60_CODE ON)
+set( GENERATE_PASCAL_SM61_CODE ON)
+set( GENERATE_PTX61_CODE ON)
 
 add_subdirectory( src lib ) 
 add_subdirectory( doc ) 
