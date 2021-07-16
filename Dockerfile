@@ -24,8 +24,8 @@ RUN conda update -y conda
 CMD ["bash" "--gpus all -it --rm -e DISPLAY=${DISPLAY} -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME:/home/$USER"] conda init && source ~/.bashrc
 RUN sudo apt-get install -y build-essential cmake libboost-all-dev libeigen3-dev libx11-dev libjpeg-dev libxxf86vm1 libxxf86vm-dev libxi-dev mesa-common-dev libxext-dev libpng-dev libimlib2-dev libglew-dev libxrender-dev libxrandr-dev libglm-dev libxt-dev git
 
-RUN git clone -b deeptam https://github.com/lmb-freiburg/lmbspecialops.git && \
-	git clone https://github.com/t-thanh/deeptam && \
+RUN git clone https://github.com/t-thanh/deeptam && \
+	git clone -b deeptam https://github.com/lmb-freiburg/lmbspecialops.git && \
 	mv lmbspecialops/CMakeLists.txt lmbspecialops/CMakeLists.txt_backup && \
 	cp deeptam/patch/CMakeLists.txt lmbspecialops && \
 	cd ~/deeptam/tracking/weights && ./download_weights.sh && \
@@ -38,11 +38,8 @@ RUN echo "conda activate deeptam" > ~/.bashrc
 ENV PATH /home/docker/miniconda3/envs/deeptam/bin:$PATH
 RUN /bin/bash -c "echo `python --version` && pip install --upgrade pip && pip install tensorflow-gpu==1.4.0 && \
 	pip install minieigen && pip install scikit-image && \
-	conda install -y cudatoolkit=8.0 cudnn=6.0 -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/linux-64/ && \
-	cd lmbspecialops && mkdir build && cd build && cmake .. && make && \
-	export PYTHONPATH=$PYTHONPATH:~/deeptam/tracking/python:~/deeptam/mapping/python:~/lmbspecialops/python && \
-	echo $PYTHONPATH && \
-	echo "conda activate deeptam" >> ~/.bashrc "
-SHELL ["/bin/bash", "--login", "-c"]
-
-ENTRYPOINT ["/bin/bash"]
+	conda install -y cudatoolkit=8.0 cudnn=6.0 -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/linux-64/"
+ENV PYTHONPATH $PYTHONPATH:/home/docker/deeptam/tracking/python:/home/docker/deeptam/mapping/python:/home/docker/lmbspecialops/python
+ENV LD_LIBRARY_PATH /home/docker/miniconda3/envs/deeptam/lib:/home/docker/miniconda3/lib/:$LD_LIBRARY_PATH
+# Launch
+ENTRYPOINT ["./deeptam/install_test.sh"]
