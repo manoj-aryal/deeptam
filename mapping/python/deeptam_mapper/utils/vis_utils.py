@@ -6,8 +6,8 @@ from .datatypes import *
 def convert_array_to_colorimg(inp):
     """Returns the img as PIL images"""
     image_arr = inp.copy()
-    if image_arr.dtype == np.float32 or image_arr.dtype == np.float64:
-        # image_arr += 0.5
+    if image_arr.dtype == np.float32:
+        image_arr += 0.5
         image_arr *= 255
         image_arr = image_arr.astype(np.uint8)
     image_arr = image_arr[0:3,:,:]
