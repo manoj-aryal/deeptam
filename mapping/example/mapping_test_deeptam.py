@@ -12,7 +12,7 @@ from collections import namedtuple
 DepthMetrics = namedtuple('DepthMetrics', ['l1_inverse', 'scale_invariant', 'abs_relative'])
 import pickle
 import matplotlib.pyplot as plt
-
+import time
 def init_visualization(title):
     """Initializes a simple visualization for tracking
     
@@ -157,7 +157,7 @@ def create_cv_conf_from_sequence_py(depth_key,
     return np.nan_to_num(cv_mean), depth_label_tensor
 
 def mapping_with_pose(
-                        datafile,
+                        curr_path,
                         mapping_mod_path,
                         checkpoints,
                         gpu_memory_fraction=None,
@@ -166,111 +166,138 @@ def mapping_with_pose(
                         max_sequence_length=10,
                         nb_iterations_num=5,
                         savedir=None):
-    
-    tf.reset_default_graph()
-    
-    gpu_options = tf.GPUOptions()
-    if not gpu_memory_fraction is None:
-        gpu_options.per_process_gpu_memory_fraction=gpu_memory_fraction
-    session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options))
-    
-    # build mapping mod
-    mapping_mod = load_myNetworks_module_noname(mapping_mod_path)
 
-    # fixed band module
-    fb_depth_net = mapping_mod.MappingFBNetwork(batch_size=1, width=width, height=height)
-    fb_depth_outputs = fb_depth_net.build_net(**fb_depth_net.placeholders,state=fb_depth_net.placeholders_state)
+    for i in range(4):
+        cv_data = os.path.join(curr_path, 'cv-' + str(i) + '.npy')
+        depth_label_data = os.path.join(curr_path, 'depth_label_tensor-' + str(i) + '.npy')
+        keyframe_data = os.path.join(curr_path, 'keyframe_img-' + str(i) + '.npy')
 
-    # narrow band module
-    nb_depth_net = mapping_mod.MappingNBNetwork(batch_size=1, width=width, height=height)
-    nb_depth_outputs = nb_depth_net.build_net(**nb_depth_net.placeholders,state=nb_depth_net.placeholders_state)
+        cost_volume = np.load(cv_data)
+        cost_volume_new = np.zeros((1, 32, 240, 320))
+        cost_volume_new[0, :, :, :] = cost_volume[:, :240, :320] 
 
-    # narrow band refinement module
-    nb_refine_depth_net = mapping_mod.MappingNBRefineNetwork(batch_size=1, width=width, height=height)
-    nb_refine_depth_outputs = nb_refine_depth_net.build_net(**nb_refine_depth_net.placeholders,state=nb_refine_depth_net.placeholders_state)
+        depth_label = np.load(depth_label_data)
+        depth_label_new = np.zeros((1, 32, 240, 320))
+        depth_label_new[0, :, :, :] = depth_label[:, :240, :320] 
 
-    # pairwise cost volume generation for fixed band module
-    cv_fb_generate_net = mapping_mod.CVGenerateNetwork(batch_size=1, width=width, height=height, depth_scale_array=np.linspace(0.01,2.5,32))
-    cv_fb_generate_outputs = cv_fb_generate_net.build_net(**cv_fb_generate_net.placeholders,state=cv_fb_generate_net.placeholders_state)
+        keyframe_img = np.load(keyframe_data)
+        key_img = np.zeros((1,3, 240, 320))
+        key_img[0, 0, :, :] = keyframe_img[:240, :320] 
 
-    # pairwise cost volume generation for narrow band module
-    cv_nb_generate_net = mapping_mod.CVGenerateNetwork(batch_size=1, width=width, height=height, depth_scale_array=np.linspace(0.8,1.2,32))
-    cv_nb_generate_outputs = cv_nb_generate_net.build_net(**cv_nb_generate_net.placeholders,state=cv_nb_generate_net.placeholders_state)
-    
-    
-    # load weights
-    session.run(tf.global_variables_initializer())
+        key_img[0, 1, :, :] = keyframe_img[:240, :320] 
+        key_img[0, 2, :, :] = keyframe_img[:240, :320]
 
-    for checkpoint in checkpoints:
-        optimistic_restore(session,checkpoint,verbose=True)
+        tf.reset_default_graph()
         
-    # read input data
-    with open(datafile,'rb') as f:
-        sub_seq_py = pickle.load(f)
+        gpu_options = tf.GPUOptions()
+        if not gpu_memory_fraction is None:
+            gpu_options.per_process_gpu_memory_fraction=gpu_memory_fraction
+        session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options))
+        
+        # build mapping mod
+        mapping_mod = load_myNetworks_module_noname(mapping_mod_path)
 
-    axes = init_visualization('DeepTAM_Mapper')
-    ######### depth_gt
-    depth_gt = sub_seq_py.get_depth(frame=0)
+        # fixed band module
+        fb_depth_net = mapping_mod.MappingFBNetwork(batch_size=1, width=width, height=height)
+        fb_depth_outputs = fb_depth_net.build_net(**fb_depth_net.placeholders,state=fb_depth_net.placeholders_state)
 
+        # narrow band module
+        nb_depth_net = mapping_mod.MappingNBNetwork(batch_size=1, width=width, height=height)
+        nb_depth_outputs = nb_depth_net.build_net(**nb_depth_net.placeholders,state=nb_depth_net.placeholders_state)
 
-    ######### fixed band prediction with increasing number of frames
-    depth_init = np.ones([1,1,240,320])
+        # narrow band refinement module
+        nb_refine_depth_net = mapping_mod.MappingNBRefineNetwork(batch_size=1, width=width, height=height)
+        nb_refine_depth_outputs = nb_refine_depth_net.build_net(**nb_refine_depth_net.placeholders,state=nb_refine_depth_net.placeholders_state)
 
-    for frame_id in range(1,sub_seq_py.seq_len):
+        # pairwise cost volume generation for fixed band module
+        # cv_fb_generate_net = mapping_mod.CVGenerateNetwork(batch_size=1, width=width, height=height, depth_scale_array=np.linspace(0.01,2.5,32))
+        # cv_fb_generate_outputs = cv_fb_generate_net.build_net(**cv_fb_generate_net.placeholders,state=cv_fb_generate_net.placeholders_state)
 
-        frame = frame_id
-        sub_sub_seq_py = SubSeqPy(sub_seq_py, start_frame=0, seq_len=frame+1)
- 
+        # pairwise cost volume generation for narrow band module
+        # cv_nb_generate_net = mapping_mod.CVGenerateNetwork(batch_size=1, width=width, height=height, depth_scale_array=np.linspace(0.8,1.2,32))
+        # cv_nb_generate_outputs = cv_nb_generate_net.build_net(**cv_nb_generate_net.placeholders,state=cv_nb_generate_net.placeholders_state)
+        
+        
+        # load weights
+        session.run(tf.global_variables_initializer())
 
-        cv, depth_label_tensor = create_cv_conf_from_sequence_py(depth_init, sub_sub_seq_py, session, cv_fb_generate_net, cv_fb_generate_outputs)
-        feed_dict = {
-            fb_depth_net.placeholders['image_key']: sub_seq_py.get_image(frame=0),
-            fb_depth_net.placeholders_state['cv']:cv,
-            fb_depth_net.placeholders_state['depth_label_tensor']:depth_label_tensor,
-        }
-        fb_out = session.run(fb_depth_outputs, feed_dict=feed_dict)
-
-        depth_pr = fb_out['predict_depth']
+        for checkpoint in checkpoints:
+            optimistic_restore(session,checkpoint,verbose=True)
             
-        dm = compute_depth_metrics(1/depth_gt, 1/depth_pr)
-        update_visualization(axes, 
-                             sub_seq_py.get_image(0),
-                             sub_seq_py.get_image(frame=frame),
-                             fb_out['predict_depth'],
-                             None,
-                             ['',str(frame_id),str(frame_id),''])
-        
-    ######### narrow band prediction with increasing number of iterations 
-    for iteration in range(nb_iterations_num):
+        # read input data
+        # with open(datafile,'rb') as f:
+        #     sub_seq_py = pickle.load(f)
 
-        cv, depth_label_tensor = create_cv_conf_from_sequence_py(depth_pr, sub_seq_py, session, cv_nb_generate_net, cv_nb_generate_outputs)
-        feed_dict = {
-            nb_depth_net.placeholders['image_key']: sub_seq_py.get_image(frame=0),
-            nb_depth_net.placeholders_state['cv']:cv,
-            nb_depth_net.placeholders_state['depth_label_tensor']:depth_label_tensor,
-        }
-        nb_out = session.run(nb_depth_outputs, feed_dict=feed_dict)
-        depth_pr = nb_out['predict_depth']
+        axes = init_visualization('DeepTAM_Mapper')
+        ######### depth_gt
+        # depth_gt = sub_seq_py.get_depth(frame=0)
 
-        feed_dict = {
-            nb_refine_depth_net.placeholders['image_key']: sub_seq_py.get_image(frame=0),
-            nb_refine_depth_net.placeholders['depth_key']: depth_pr,
-            nb_refine_depth_net.placeholders_state['cv']:cv,
-        }
-        nb_refine_out = session.run(nb_refine_depth_outputs, feed_dict=feed_dict)
-        depth_pr = nb_refine_out['predict_depth'] 
-        
-        dm = compute_depth_metrics(1/depth_gt, 1/depth_pr)
-        update_visualization(axes,
-                             sub_seq_py.get_image(0),
-                             sub_seq_py.get_image(frame=frame),
-                             fb_out['predict_depth'], 
-                             nb_refine_out['predict_depth'],
-                             ['',str(frame_id),str(frame_id),str(iteration)])    
+
+        ######### fixed band prediction with increasing number of frames
+        depth_init = np.ones([1,1,240,320])
+        predicted_depth = None
+
+        for _ in range(1):
+
+            # frame = frame_id
+            # sub_sub_seq_py = SubSeqPy(sub_seq_py, start_frame=0, seq_len=frame+1)
+    
+
+            # cv, depth_label_tensor = create_cv_conf_from_sequence_py(depth_init, sub_sub_seq_py, session, cv_fb_generate_net, cv_fb_generate_outputs)
+            feed_dict = {
+                fb_depth_net.placeholders['image_key']: key_img,
+                fb_depth_net.placeholders_state['cv']:cost_volume_new,
+                fb_depth_net.placeholders_state['depth_label_tensor']:depth_label_new,
+            }
+            fb_out = session.run(fb_depth_outputs, feed_dict=feed_dict)
+
+            depth_pr = fb_out['predict_depth']
+            predicted_depth = depth_pr
+            # dm = compute_depth_metrics(1/depth_gt, 1/depth_pr)
+            update_visualization(axes, 
+                                key_img,
+                                key_img,
+                                fb_out['predict_depth'],
+                                None,
+                                ['',str(1),str(1),''])
+        # if predicted_depth != None:
+        np.save('predicted_depth-' + str(i) + '.npy', predicted_depth)
+        ######### narrow band prediction with increasing number of iterations 
+        for _ in range(1):
+
+            # cv, depth_label_tensor = create_cv_conf_from_sequence_py(predicted_depth, sub_seq_py, session, cv_nb_generate_net, cv_nb_generate_outputs)
+            feed_dict = {
+                nb_depth_net.placeholders['image_key']: key_img,
+                nb_depth_net.placeholders_state['cv']:cost_volume_new,
+                nb_depth_net.placeholders_state['depth_label_tensor']:depth_label_new,
+            }
+            nb_out = session.run(nb_depth_outputs, feed_dict=feed_dict)
+            depth_pr = nb_out['predict_depth']
+
+            feed_dict = {
+                nb_refine_depth_net.placeholders['image_key']: key_img,
+                nb_refine_depth_net.placeholders['depth_key']: depth_pr,
+                nb_refine_depth_net.placeholders_state['cv']:cost_volume_new,
+            }
+            nb_refine_out = session.run(nb_refine_depth_outputs, feed_dict=feed_dict)
+            depth_pr = nb_refine_out['predict_depth'] 
             
-    plt.show()
-    del session
-    tf.reset_default_graph()
+            # dm = compute_depth_metrics(1/depth_gt, 1/depth_pr)
+            update_visualization(axes,
+                                key_img,
+                                key_img,
+                                fb_out['predict_depth'], 
+                                nb_refine_out['predict_depth'],
+                                ['',str(1),str(1),str(1)])    
+                
+        plt.show()
+        print('****************Saving image****************')
+        plt.savefig('mapping_example-' + str(i) + '.png')
+        
+        del session
+        tf.reset_default_graph()
+
+    # time.sleep(1200)
 
 
 
@@ -287,10 +314,17 @@ def main():
 
     width = 320
     height = 240
-
+    print('****************Running mapping part****************')
     datafile = os.path.join(examples_dir,'..','data/sun3d_example_seq.pkl')
+
+    # cv_data = os.path.join(examples_dir, '..','new-data/cv.npy')
+    # depth_label_data = os.path.join(examples_dir, '..','new-data/depth_label_tensor.npy')
+    # keyframe_data = os.path.join(examples_dir, '..','new-data/keyframe_img.npy')
+
+    curr_path = os.path.join(examples_dir, '..','new-data')
+
     mapping_with_pose(
-                    datafile,
+                    curr_path,
                     mapping_module_path,
                     checkpoints,
                     max_sequence_length=sequence_len,
