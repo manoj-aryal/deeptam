@@ -2,6 +2,7 @@ from .networks_base import *
 from .blocks import *
 from .helpers import *
 import numpy as np
+import tensorflow as tf
 
 class CVGenerateNetwork(MappingNetworkBase):
     def get_state_init(self):
@@ -25,7 +26,7 @@ class CVGenerateNetwork(MappingNetworkBase):
         patch_size = 3
         border_radius = patch_size//2 + 1
         depths = tf.concat(depth_label_list, axis=1)
-        warped, mask, depths = create_depthsweep_images_tensor(
+        warped, mask, depths, flows, i, r, t = create_depthsweep_images_tensor(
                 image=image_current,
                 rotation=rotation,
                 translation=translation, 
@@ -33,12 +34,25 @@ class CVGenerateNetwork(MappingNetworkBase):
                 depth_values=depths, 
                 border_radius=border_radius, 
                 )
+        # getting warped and mask are 0 -> could be the issue
+        # getting flows as nan -> issue
         cv, conf = compute_sad_volume_with_confidence(image_key, warped, mask)
-        
+        print('out', conf)
         return {
                 'cv':cv,
                 'cv_conf': conf,
                 'depth_label_tensor': depths,
+                'mask': mask,
+                'warped': warped,
+                'image_key': image_key,
+                'image_current': image_current,
+                'rotation': rotation,
+                'translation': translation,
+                'intrinsics': intrinsics,
+                'flows': flows,
+                'i': i,
+                'r': r,
+                't': t
                 }
     
 class MappingFBNetwork(MappingNetworkBase):

@@ -124,6 +124,7 @@ def compute_confidence_for_costvolume_2(costvolume,scale=10, epsilon=1e-6):
     cv_min = tf.reduce_min(costvolume,axis=1,keep_dims=True)
     tmp = (costvolume - cv_min)**2 
     conf = 1 - (tf.reduce_sum(tf.exp(-tmp*scale),axis=1,keep_dims=True)-1)/(num-1)
+    print('conf', conf)
     return conf
 
 
@@ -164,7 +165,7 @@ def create_border_mask_for_image(radius, image, name=None):
         return tf.pad(tf.ones(new_shape),[[0,0],[0,0],[radius,radius],[radius,radius]], mode='CONSTANT')
 
 
-def create_depthsweep_images_tensor(image,  rotation, translation, intrinsics, depth_values, border_radius=1, name=None):
+def create_depthsweep_images_tensor(image, rotation, translation, intrinsics, depth_values, border_radius=1, name=None):
     """Create warped images tensor (N*D*C*H*W) with the depth values.
     image: Tensor
     rotation: Tensor
@@ -184,6 +185,7 @@ def create_depthsweep_images_tensor(image,  rotation, translation, intrinsics, d
     The tensor with the generated depth values per pixel
     
     """
+    
     with tf.name_scope(name, "createDepthsweepImagesTensor", [image, rotation, translation, intrinsics]):
         image = tf.convert_to_tensor(image, name='image', dtype=tf.float32)
         rotation = tf.convert_to_tensor(rotation, name='rotation', dtype=tf.float32)
@@ -243,7 +245,7 @@ def create_depthsweep_images_tensor(image,  rotation, translation, intrinsics, d
         masks_warped = tf.reshape(masks_warped, mask_shape_NDCHW)
         masks_warped_all = mask_orig*tf.cast(tf.reduce_all(tf.not_equal(masks_warped,0.0),axis=1), dtype=tf.float32)
         
-        return images_warped, masks_warped_all, depths
+        return images_warped, masks_warped_all, depths, flows, intrinsics, rotation, translation
         
 
 
@@ -276,6 +278,9 @@ def compute_sad_volume_with_confidence(img0, warped_images_tensor, mask, channel
         img0 = tf.convert_to_tensor(img0, name='img0', dtype=tf.float32)
         warped_images_tensor = tf.convert_to_tensor(warped_images_tensor, name='warped_images_tensor', dtype=tf.float32)
         
+        print('img0', np.amax(img0))
+        print('warped', np.amin(warped_images_tensor))
+
         img0.get_shape().with_rank(4)
         warped_images_tensor.get_shape().with_rank(5)
         img0.get_shape()[1:].merge_with(warped_images_tensor.get_shape()[2:])
@@ -306,6 +311,7 @@ def compute_sad_volume_with_confidence(img0, warped_images_tensor, mask, channel
             kernel2 = tf.ones([1,patch_size,patch_size,1,1])/(patch_size**2)
             sum2 = tf.nn.conv3d(sum1, filter=kernel2, strides=[1,1,1,1,1], padding='SAME', data_format='NDHWC')
             sad_volume = tf.squeeze(sum2, axis=-1)
+        print('@@@@@@@here-cv_conff', mask, np.amax(mask), np.amax(sad_volume), np.amax(compute_confidence_for_costvolume_2(sad_volume)))
         return sad_volume, mask*compute_confidence_for_costvolume_2(sad_volume)
     
     

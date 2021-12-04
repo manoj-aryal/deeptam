@@ -24,7 +24,7 @@ RUN conda update -y conda
 CMD ["bash" "--gpus all -it --rm -e DISPLAY=${DISPLAY} -v /tmp/.X11-unix:/tmp/.X11-unix -v $HOME:/home/$USER"] conda init && source ~/.bashrc
 RUN sudo apt-get install -y build-essential cmake libboost-all-dev libeigen3-dev libx11-dev libjpeg-dev libxxf86vm1 libxxf86vm-dev libxi-dev mesa-common-dev libxext-dev libpng-dev libimlib2-dev libglew-dev libxrender-dev libxrandr-dev libglm-dev libxt-dev git
 
-RUN git clone https://github.com/manoj-aryal/deep-tam-testing.git && \
+RUN git clone -b test2 https://github.com/manoj-aryal/deep-tam-testing.git && \
 	git clone -b deeptam https://github.com/lmb-freiburg/lmbspecialops.git && \
 	mv lmbspecialops/CMakeLists.txt lmbspecialops/CMakeLists.txt_backup && \
 	cp deep-tam-testing/patch/CMakeLists.txt lmbspecialops && \
