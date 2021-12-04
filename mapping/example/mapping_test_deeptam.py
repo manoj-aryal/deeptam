@@ -134,8 +134,10 @@ def create_cv_conf_from_sequence_py(depth_key,
                 net.placeholders['image_key']: sub_seq_py.get_image(frame=0),
                 net.placeholders['image_current']:sub_seq_py.get_image(frame=frame),
                 net.placeholders['intrinsics']:np.expand_dims(sub_seq_py.intrinsics,axis=0),
+                # rotation -> x, y, z, w 
                 net.placeholders['rotation']:np.expand_dims(sub_seq_py.get_rotation(frame=frame),axis=0),
-                net.placeholders['translation']:np.expand_dims(sub_seq_py.get_translation(frame=frame),axis=0),
+                # translation -> x, y, z -> position
+                net.placeholders['translation']:np.expand_dims(sub_seq_py.get_translation(frame=frame),axis=0), 
         }
         cv_generate_out = session.run(outputs, feed_dict=feed_dict)
         cv = cv_generate_out['cv']
@@ -167,7 +169,7 @@ def mapping_with_pose(
                         nb_iterations_num=5,
                         savedir=None):
 
-    for i in range(4):
+    for i in range(1):
         cv_data = os.path.join(curr_path, 'cv-' + str(i) + '.npy')
         depth_label_data = os.path.join(curr_path, 'depth_label_tensor-' + str(i) + '.npy')
         keyframe_data = os.path.join(curr_path, 'keyframe_img-' + str(i) + '.npy')
@@ -180,12 +182,12 @@ def mapping_with_pose(
         depth_label_new = np.zeros((1, 32, 240, 320))
         depth_label_new[0, :, :, :] = depth_label[:, :240, :320] 
 
-        keyframe_img = np.load(keyframe_data)
+        # keyframe_img = np.load(keyframe_data)
         key_img = np.zeros((1,3, 240, 320))
-        key_img[0, 0, :, :] = keyframe_img[:240, :320] 
+        # key_img[0, 0, :, :] = keyframe_img[:240, :320] 
 
-        key_img[0, 1, :, :] = keyframe_img[:240, :320] 
-        key_img[0, 2, :, :] = keyframe_img[:240, :320]
+        # key_img[0, 1, :, :] = keyframe_img[:240, :320] 
+        # key_img[0, 2, :, :] = keyframe_img[:240, :320]
 
         tf.reset_default_graph()
         
